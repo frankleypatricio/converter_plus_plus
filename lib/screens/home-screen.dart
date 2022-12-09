@@ -1,6 +1,12 @@
+import 'dart:io';
+
 import 'package:converter_plus_plus/components/custom-card.dart';
+import 'package:converter_plus_plus/enums/media-quality.dart';
+import 'package:converter_plus_plus/helpers/waiting-dialog.dart';
 import 'package:converter_plus_plus/theme.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,14 +20,30 @@ class _HomeScreenState extends State<HomeScreen> {
   final itens = ['.mp3', '.mp4', '.png', 'Customizado'];
   final qualidades = ['144p', '240p', '360p', '480p', '720p', '1080p', 'Customizado'];
   String? selected;
-  String? qSelected;
+  MediaQuality? qSelected;
+  final directory = Directory.current.path;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          print('directory: $directory');
+
+          showWaitingDialog(context, operation: () async {
+            FilePickerResult? result = await FilePicker.platform.pickFiles();
+            if (result != null) {
+              PlatformFile file = result.files.first;
+              final streams = await Process.run('$directory/ffprobe.exe', ['-loglevel', '0', '-print_format', 'json', '-show_streams', '${file.path}']);
+
+              print(file.name);
+              print(file.extension);
+              print(file.path);
+              print(file.identifier);
+            }
+          });
+        },
         backgroundColor: AppTheme.colorScheme.primary,
         child: const Icon(Icons.note_add_rounded),
       ),
@@ -42,27 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 title: const Text('video.mp4'),
               ),
-              /*children: [
-                ListTile(
-                  tileColor: AppTheme.colorScheme.primary.withOpacity(.25),
-                  leading: const Icon(FontAwesomeIcons.solidFileImage),
-                  title: const Text('image.png'),
-                ),
-                ListTile(
-                  leading: const Icon(FontAwesomeIcons.solidFileVideo),
-                  trailing: Checkbox(
-                    checkColor: Colors.black,
-                    value: true,
-                    onChanged: (_){},
-                  ),
-                  title: const Text('video.mp4'),
-                ),
-                ListTile(
-                  tileColor: AppTheme.colorScheme.primary.withOpacity(.25),
-                  leading: const Icon(FontAwesomeIcons.solidFileAudio),
-                  title: const Text('audio.mp3'),
-                ),
-              ],*/
             ),
           ),
 
@@ -106,17 +107,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         flex: 2,
                         child: DropdownButtonFormField(
-                          onChanged: (String? s) => setState(() => qSelected = s),
+                          onChanged: (value) => setState(() => qSelected = value),
                           hint: Text(
                             'Selecione a qualidade',
                             style: TextStyle(color: AppTheme.colorScheme.primary),
                           ),
                           isExpanded: true,
                           value: qSelected,
-                          items: qualidades.map((i) {
+                          items: MediaQuality.values.map((e) {
                             return DropdownMenuItem(
-                              value: i,
-                              child: Text(i),
+                              value: e,
+                              child: Text(e.descricao),
                             );
                           }).toList(),
                         ),
