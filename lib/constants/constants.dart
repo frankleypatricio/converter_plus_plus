@@ -8,4 +8,9 @@ const Map<String, List<String>> extensions = {
   'audio': [
     'mp3', 'wmv', 'wav', 'ogg', '3gpp'
   ],
+  'icon': [
+    'ico'
+  ],
 };
+
+String systemDirectory = '';

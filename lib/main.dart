@@ -1,8 +1,12 @@
+import 'dart:io' show Directory;
+
+import 'package:converter_plus_plus/constants/constants.dart';
 import 'package:converter_plus_plus/screens/home-screen.dart';
 import 'package:converter_plus_plus/theme.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  systemDirectory = Directory.current.path;
   runApp(const MyApp());
 }
 
