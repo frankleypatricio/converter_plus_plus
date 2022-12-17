@@ -1,14 +1,18 @@
-import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/models/list-files-store.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:converter_plus_plus/theme.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class HomeMixin {
-  String? selected;
-  MediaQuality? qSelected;
   final ListFilesStore listFiles = ListFilesStore();
   List<String> conversionFormats = [];
+  bool convertAll = true;
+  bool useSameSettings = false;
+  final boxDecoration = BoxDecoration(
+    border: Border.all(color: AppTheme.colorScheme.primary, width: 1),
+    borderRadius: BorderRadius.circular(10),
+  );
+
 
   // Controllers
   final widthController = TextEditingController();

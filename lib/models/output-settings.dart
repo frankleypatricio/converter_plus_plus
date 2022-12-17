@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
+import 'package:converter_plus_plus/enums/replace-file.dart';
 import 'package:mobx/mobx.dart';
 
 part 'output-settings.g.dart';
@@ -14,6 +15,7 @@ abstract class _OutputSettings with Store {
   @observable MediaFormat format = MediaFormat('Manter', '');
   @observable MediaSize size = MediaSize(MediaQuality.keep, 0, 0);
   String subtitles = '';
+  ReplaceFile replaceFile = ReplaceFile.ask;
   @observable bool checked = true;
 
   _OutputSettings({

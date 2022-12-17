@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:converter_plus_plus/components/custom-card.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
+import 'package:converter_plus_plus/enums/replace-file.dart';
 import 'package:converter_plus_plus/helpers/waiting-dialog.dart';
 import 'package:converter_plus_plus/mixins/home-mixin.dart';
 import 'package:converter_plus_plus/models/media-file.dart';
@@ -44,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                 final a = MediaFile(file, jsonDecode(streams.stdout)['streams'][0]);
                 listFiles.add(a);
               }
-            }catch(e,s) {
+            } catch(e,s) {
               print('Erro na importação: $e\n$s');
             }
           });
@@ -140,6 +141,18 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                             labelText: 'Nome do arquivo de saída',
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField(
+                          onChanged: (value) => listFiles.selected.output.replaceFile = value!,
+                          isExpanded: true,
+                          value: listFiles.selected.output.replaceFile,
+                          items: ReplaceFile.values.map((e) {
+                            return DropdownMenuItem(
+                              value: e,
+                              child: Text(e.descricao),
+                            );
+                          }).toList(),
+                        ),
                       ]),
 
                       CustomCard(title: 'Formato', children: [
@@ -152,12 +165,14 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                     if(value != listFiles.selected.output.type) {
                                       listFiles.selected.output.setType(value!);
                                       conversionFormats = listFiles.selected.getConversionFormats();
+                                      final format = conversionFormats.first;
 
-                                      listFiles.selected.output.format.key = conversionFormats.first;
-                                      if(listFiles.selected.output.format.key == 'Manter') {
+                                      if(format == 'Manter') {
+                                        listFiles.selected.output.setFormat(format, listFiles.selected.extension);
                                         extController.text = listFiles.selected.extension;
                                       } else {
-                                        extController.text = listFiles.selected.output.format.key;
+                                        listFiles.selected.output.setFormat(format, format);
+                                        extController.text = format;
                                       }
                                     }
                                   },
@@ -324,57 +339,48 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                         ),
                       ]),
 
-                      Builder(
-                        builder: (context) {
-                          final boxDecoration = BoxDecoration(
-                            border: Border.all(color: AppTheme.colorScheme.primary, width: 1),
-                            borderRadius: BorderRadius.circular(10),
-                          );
+                      CustomCard(title: 'Converter', children: [
+                        Container(
+                          decoration: boxDecoration,
+                          child: ListTile(
+                            trailing: Switch(
+                              value: useSameSettings,
+                              onChanged: (value) => useSameSettings = value,
+                            ),
+                            title: const Text('Usar essas configurações em todos os arquivos selecionados'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          decoration: boxDecoration,
+                          child: ListTile(
+                            trailing: Switch(
+                              value: convertAll,
+                              onChanged: (value) => convertAll = value,
+                            ),
+                            title: const Text('Converter todos os arquivos selecionados'),
+                          ),
+                        ),
 
-                          return CustomCard(title: 'Converter', children: [
-                            Container(
-                              decoration: boxDecoration,
-                              child: ListTile(
-                                trailing: Switch(
-                                  value: false,
-                                  onChanged: (value) {},
-                                ),
-                                title: const Text('Usar essas configurações em todos os arquivos selecionados'),
-                              ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: (){
+                            print('---------------------------------------------');
+                            print(listFiles.selected.toString());
+                            print('---------------------------------------------');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              decoration: boxDecoration,
-                              child: ListTile(
-                                trailing: Switch(
-                                  value: true,
-                                  onChanged: (value) {},
-                                ),
-                                title: const Text('Converter todos os arquivos selecionados'),
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-                            ElevatedButton.icon(
-                              onPressed: (){
-                                print('---------------------------------------------');
-                                print(listFiles.selected.toString());
-                                print('---------------------------------------------');
-                              },
-                              style: ElevatedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                              icon: const Padding(
-                                padding: EdgeInsets.only(left: 10),
-                                child: Icon(Icons.auto_mode_rounded, size: 26),
-                              ),
-                              label: const Text('CONVERTER  ', style: TextStyle(fontSize: 20)),
-                            ),
-                          ]);
-                        }
-                      ),
+                          ),
+                          icon: const Padding(
+                            padding: EdgeInsets.only(left: 10),
+                            child: Icon(Icons.auto_mode_rounded, size: 26),
+                          ),
+                          label: const Text('CONVERTER  ', style: TextStyle(fontSize: 20)),
+                        ),
+                      ]),
                     ],
                   );
                 }
