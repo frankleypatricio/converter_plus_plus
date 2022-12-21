@@ -18,6 +18,8 @@ abstract class _OutputSettings with Store {
   ReplaceFile replaceFile = ReplaceFile.ask;
   @observable bool checked = true;
 
+  String get fullPath => '$path/$name.${format.extension}';
+
   _OutputSettings({
     required this.type,
     required this.name,

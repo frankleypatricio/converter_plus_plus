@@ -5,6 +5,7 @@ import 'package:converter_plus_plus/components/custom-card.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
+import 'package:converter_plus_plus/exceptions/validate-exception.dart';
 import 'package:converter_plus_plus/helpers/waiting-dialog.dart';
 import 'package:converter_plus_plus/mixins/home-mixin.dart';
 import 'package:converter_plus_plus/models/media-file.dart';
@@ -135,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: nomeController,
+                          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'([/|<>:*"?\u005C])+'))],
                           onChanged: (value) => listFiles.selected.output.name = value,
                           decoration: const InputDecoration(
                             prefixIcon: Icon(FontAwesomeIcons.fileSignature, size: 20),
@@ -224,6 +226,7 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                             Expanded(child: Observer(
                               builder: (_) => TextFormField(
                                 controller: extController,
+                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp('([A-Za-z0-9])+'))],
                                 readOnly: !('Customizado'.contains(listFiles.selected.output.format.key)),
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(FontAwesomeIcons.filePen, size: 20),
@@ -280,11 +283,10 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                               Expanded(
                                 child: TextFormField(
                                   textAlign: TextAlign.end,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   readOnly: listFiles.selected.output.size.quality != MediaQuality.custom,
                                   controller: widthController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Largura',
-                                  ),
+                                  decoration: const InputDecoration(labelText: 'Largura'),
                                 ),
                               ),
                               const Padding(
@@ -294,11 +296,10 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                               Expanded(
                                 child: Observer(
                                   builder: (_) => TextFormField(
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     readOnly: listFiles.selected.output.size.quality != MediaQuality.custom,
                                     controller: heightController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Altura',
-                                    ),
+                                    decoration: const InputDecoration(labelText: 'Altura'),
                                   ),
                                 ),
                               ),
@@ -368,6 +369,18 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                             print('---------------------------------------------');
                             print(listFiles.selected.toString());
                             print('---------------------------------------------');
+
+                            ValidateException(erros: {
+                              'File1': [
+                                'Erro 1',
+                                'Erro 2',
+                              ],
+                              'File2': [
+                                'Erro 1',
+                                'Erro 2',
+                                'Erro 3',
+                              ],
+                            }).show(context);
                           },
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(

@@ -12,7 +12,7 @@ extension MediaTypeExtension on MediaType {
       case MediaType.audio:
         return 'audio';
       case MediaType.video:
-        return 'vídeo';
+        return 'video';
       case MediaType.icon:
         return 'icon';
     }
