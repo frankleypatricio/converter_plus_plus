@@ -13,4 +13,6 @@ const Map<String, List<String>> extensions = {
   ],
 };
 
+const excludeFormats = ['exe', 'txt', 'psd', 'ini', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'psd', 'pdf'];
+
 String systemDirectory = '';

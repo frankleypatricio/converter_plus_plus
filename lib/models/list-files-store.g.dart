@@ -62,6 +62,17 @@ mixin _$ListFilesStore on _ListFilesStore, Store {
   }
 
   @override
+  void addAll(List<MediaFile> list) {
+    final _$actionInfo = _$_ListFilesStoreActionController.startAction(
+        name: '_ListFilesStore.addAll');
+    try {
+      return super.addAll(list);
+    } finally {
+      _$_ListFilesStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void clear() {
     final _$actionInfo = _$_ListFilesStoreActionController.startAction(
         name: '_ListFilesStore.clear');

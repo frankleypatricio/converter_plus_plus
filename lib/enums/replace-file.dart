@@ -23,4 +23,15 @@ extension ReplaceFileExtension on ReplaceFile {
         return 'Manter os dois arquivos';
     }
   }
+
+  List<String> get argument {
+    switch (this) {
+      case ReplaceFile.ask:
+        return [];
+      case ReplaceFile.replace:
+        return ['-y'];
+      case ReplaceFile.notReplace:
+        return ['-n'];
+    }
+  }
 }

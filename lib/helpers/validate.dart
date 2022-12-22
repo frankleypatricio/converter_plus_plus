@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:converter_plus_plus/constants/constants.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/exceptions/validate-exception.dart';
 import 'package:converter_plus_plus/models/media-file.dart';
+import 'package:file_picker/file_picker.dart';
 
 class Validate {
   static void validateListMediaFile(List<MediaFile> list) {
@@ -10,9 +12,11 @@ class Validate {
     List<String> tempList;
 
     for(var file in list) {
-      tempList = validateMediaFile(file);
-      if(tempList.isNotEmpty) {
-        erros[file.fullName] = tempList;
+      if(file.output.checked) {
+        tempList = validateMediaFile(file, true);
+        if(tempList.isNotEmpty) {
+          erros[file.fullName] = tempList;
+        }
       }
     }
 
@@ -21,7 +25,7 @@ class Validate {
     }
   }
 
-  static List<String> validateMediaFile(MediaFile file) {
+  static List<String> validateMediaFile(MediaFile file, [bool isList = false]) {
     List<String> erros = [];
 
     if(file.output.path.isEmpty) {
@@ -43,6 +47,10 @@ class Validate {
       if(file.output.size.height <= 0) {
         erros.add('A altura deve ser maior que 0.');
       }
+    }
+
+    if(!isList && erros.isNotEmpty) {
+      throw ValidateException(erros: {file.fullName: erros});
     }
 
     return erros;
@@ -67,5 +75,23 @@ class Validate {
     }
 
     return file.output.name;
+  }
+
+  static void validateFilePicked(PlatformFile file, Map stdout) {
+    const genericMessage = 'Falha ao carregar arquivo. Verifique se o arquivo é uma mídia de vídeo, áudio ou imagem.';
+
+    if(stdout.isEmpty || !stdout.containsKey('streams')) {
+      throw ValidateException(erros: {file.name: [genericMessage]});
+    } else {
+      if(stdout['streams'].isEmpty) {
+        throw ValidateException(erros: {file.name: [genericMessage]});
+      } else if(!['video', 'audio'].contains(stdout['streams'][0]['codec_type'])) {
+        throw ValidateException(erros: {file.name: [genericMessage]});
+      }
+
+      if(excludeFormats.contains(file.extension)) {
+        throw ValidateException(erros: {file.name: ['Formato do arquivo não suportado.']});
+      }
+    }
   }
 }

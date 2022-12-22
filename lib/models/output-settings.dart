@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
@@ -18,7 +16,8 @@ abstract class _OutputSettings with Store {
   ReplaceFile replaceFile = ReplaceFile.ask;
   @observable bool checked = true;
 
-  String get fullPath => '$path/$name.${format.extension}';
+  String get fullPath => '$path\\$name.${format.extension}';
+  String get scale => '${size.width}:${size.height}';
 
   _OutputSettings({
     required this.type,

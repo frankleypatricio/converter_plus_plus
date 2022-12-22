@@ -1,22 +1,18 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:converter_plus_plus/components/custom-card.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
 import 'package:converter_plus_plus/exceptions/validate-exception.dart';
-import 'package:converter_plus_plus/helpers/waiting-dialog.dart';
-import 'package:converter_plus_plus/mixins/home-mixin.dart';
-import 'package:converter_plus_plus/models/media-file.dart';
+import 'package:converter_plus_plus/helpers/ffmpeg.dart';
+import 'package:converter_plus_plus/helpers/validate.dart';
+import 'package:converter_plus_plus/helpers/loading-dialog.dart';
+import 'package:converter_plus_plus/models/list-files-store.dart';
 import 'package:converter_plus_plus/theme.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
-import '../constants/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -25,32 +21,35 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with HomeMixin {
+class _HomeScreenState extends State<HomeScreen> {
+  // Vars
+  late FFprobe _ffprobe;
+  late FFmpeg _ffmpeg;
+  bool _convertAll = true;
+  bool _useSameSettings = false;
+  final _boxDecoration = BoxDecoration(
+    border: Border.all(color: AppTheme.colorScheme.primary, width: 1),
+    borderRadius: BorderRadius.circular(10),
+  );
+
+  // Lists
+  final ListFilesStore _listFiles = ListFilesStore();
+  List<String> _conversionFormats = [];
+
+  // Controllers
+  final _widthController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _extController = TextEditingController();
+  final _pathController = TextEditingController();
+  final _subtitleController = TextEditingController();
+  final _nomeController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          print('directory: $systemDirectory');
-
-          showWaitingDialog(context, operation: () async {
-            //TODO: DOIS CASOS PARA VERIFICAR: SE streams FOR VAZIO, NÃO FUNCIONA.
-            //TODO: SE codec_type FOR DIFERENTE DOS CADASTRADOS, TAMBÉM NÃO FUNCIONA
-            //TODO: PARECE QUE EXISTE UM CODEC subtitle, ENTÃO VERIFICAR E VERIFICAR SVG E ICO TAMBÉM
-            try {
-              final result = await FilePicker.platform.pickFiles(allowMultiple: true);
-              if (result != null) {
-                PlatformFile file = result.files.first;
-                final streams = await Process.run('C:/Projetos/_meus-projetos/converter_plus_plus/ffprobe.exe', ['-loglevel', '0', '-print_format', 'json', '-show_streams', '${file.path}']);
-                final a = MediaFile(file, jsonDecode(streams.stdout)['streams'][0]);
-                listFiles.add(a);
-              }
-            } catch(e,s) {
-              print('Erro na importação: $e\n$s');
-            }
-          });
-        },
+        onPressed: _loadFiles,
         backgroundColor: AppTheme.colorScheme.primary,
         child: const Icon(Icons.note_add_rounded),
       ),
@@ -61,31 +60,31 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
           Expanded(
             child: Observer(
               builder: (_) {
-                return listFiles.files.isNotEmpty
+                return _listFiles.files.isNotEmpty
                 ? ListView.builder(
                   padding: const EdgeInsets.only(bottom: 80),
-                  itemCount: listFiles.files.length,
+                  itemCount: _listFiles.files.length,
                   itemBuilder: (_, index) => Observer(
                     builder: (_) => ListTile(
                       selectedTileColor: AppTheme.colorScheme.primary.withOpacity(.25),
-                      selected: index == listFiles.selectedIndex,
+                      selected: index == _listFiles.selectedIndex,
                       tileColor: index%2 == 1 ? AppTheme.colorScheme.secondary : null,
-                      leading: Icon(listFiles.files[index].type.icon),
+                      leading: Icon(_listFiles.files[index].type.icon),
                       trailing: Checkbox(
                         checkColor: Colors.black,
-                        value: listFiles.files[index].output.checked,
+                        value: _listFiles.files[index].output.checked,
                         onChanged: (value){
-                          listFiles.files[index].output.setChecked(value!);
+                          _listFiles.files[index].output.setChecked(value!);
                         },
                       ),
-                      title: Text(listFiles.files[index].fullName),
+                      title: Text(_listFiles.files[index].fullName),
                       onTap: () {
-                        listFiles.setSelectedIndex(index);
+                        _listFiles.setSelectedIndex(index);
                       },
                     ),
                   ),
                 )
-                : emptyList();
+                : _emptyList();
               },
             ),
           ),
@@ -96,14 +95,14 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
           Expanded(
             child: Observer(
               builder: (context) {
-                if(listFiles.files.isNotEmpty) {
-                  widthController.text = listFiles.selected.output.size.width.toString();
-                  heightController.text = listFiles.selected.output.size.height.toString();
-                  extController.text = listFiles.selected.output.format.extension;
-                  pathController.text = listFiles.selected.output.path;
-                  subtitleController.text = listFiles.selected.output.subtitles;
-                  nomeController.text = listFiles.selected.output.name;
-                  conversionFormats = listFiles.selected.getConversionFormats();
+                if(_listFiles.files.isNotEmpty) {
+                  _widthController.text = _listFiles.selected.output.size.width.toString();
+                  _heightController.text = _listFiles.selected.output.size.height.toString();
+                  _extController.text = _listFiles.selected.output.format.extension;
+                  _pathController.text = _listFiles.selected.output.path;
+                  _subtitleController.text = _listFiles.selected.output.subtitles;
+                  _nomeController.text = _listFiles.selected.output.name;
+                  _conversionFormats = _listFiles.selected.getConversionFormats();
 
                   return ListView(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -114,20 +113,20 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                             Expanded(
                               child: TextFormField(
                                 readOnly: true,
-                                controller: pathController,
+                                controller: _pathController,
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(FontAwesomeIcons.folderOpen, size: 20),
                                   labelText: 'Pasta de saída',
                                 ),
-                                onChanged: (value) => listFiles.selected.output.path = value,
+                                onChanged: (value) => _listFiles.selected.output.path = value,
                               ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
                               onPressed: () async {
                                 final result = await FilePicker.platform.getDirectoryPath();
-                                listFiles.selected.output.path = result ?? '';
-                                pathController.text = listFiles.selected.output.path;
+                                _listFiles.selected.output.path = result ?? '';
+                                _pathController.text = _listFiles.selected.output.path;
                               },
                               icon: const Icon(FontAwesomeIcons.solidFolder, size: 20),
                             ),
@@ -135,9 +134,9 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          controller: nomeController,
+                          controller: _nomeController,
                           inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'([/|<>:*"?\u005C])+'))],
-                          onChanged: (value) => listFiles.selected.output.name = value,
+                          onChanged: (value) => _listFiles.selected.output.name = value,
                           decoration: const InputDecoration(
                             prefixIcon: Icon(FontAwesomeIcons.fileSignature, size: 20),
                             labelText: 'Nome do arquivo de saída',
@@ -145,9 +144,9 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField(
-                          onChanged: (value) => listFiles.selected.output.replaceFile = value!,
+                          onChanged: (value) => _listFiles.selected.output.replaceFile = value!,
                           isExpanded: true,
-                          value: listFiles.selected.output.replaceFile,
+                          value: _listFiles.selected.output.replaceFile,
                           items: ReplaceFile.values.map((e) {
                             return DropdownMenuItem(
                               value: e,
@@ -164,24 +163,24 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                               child: Observer(
                                 builder: (_) => DropdownButtonFormField(
                                   onChanged: (value) {
-                                    if(value != listFiles.selected.output.type) {
-                                      listFiles.selected.output.setType(value!);
-                                      conversionFormats = listFiles.selected.getConversionFormats();
-                                      final format = conversionFormats.first;
+                                    if(value != _listFiles.selected.output.type) {
+                                      _listFiles.selected.output.setType(value!);
+                                      _conversionFormats = _listFiles.selected.getConversionFormats();
+                                      final format = _conversionFormats.first;
 
                                       if(format == 'Manter') {
-                                        listFiles.selected.output.setFormat(format, listFiles.selected.extension);
-                                        extController.text = listFiles.selected.extension;
+                                        _listFiles.selected.output.setFormat(format, _listFiles.selected.extension);
+                                        _extController.text = _listFiles.selected.extension;
                                       } else {
-                                        listFiles.selected.output.setFormat(format, format);
-                                        extController.text = format;
+                                        _listFiles.selected.output.setFormat(format, format);
+                                        _extController.text = format;
                                       }
                                     }
                                   },
                                   decoration: const InputDecoration(),
                                   isExpanded: true,
-                                  value: listFiles.selected.output.type,
-                                  items: listFiles.selected.getConversionTypes().map((e) {
+                                  value: _listFiles.selected.output.type,
+                                  items: _listFiles.selected.getConversionTypes().map((e) {
                                     return DropdownMenuItem(
                                       value: e,
                                       child: Text(e.descricao),
@@ -196,14 +195,14 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                 builder: (_) => DropdownButtonFormField(
                                   onChanged: (value) {
                                     if(value == 'Manter') {
-                                      listFiles.selected.output.setFormat(value!, listFiles.selected.extension);
-                                      extController.text = listFiles.selected.extension;
+                                      _listFiles.selected.output.setFormat(value!, _listFiles.selected.extension);
+                                      _extController.text = _listFiles.selected.extension;
                                     } else if(value == 'Customizado') {
-                                      listFiles.selected.output.setFormat(value!, '');
-                                      extController.text = '';
+                                      _listFiles.selected.output.setFormat(value!, '');
+                                      _extController.text = '';
                                     } else {
-                                      listFiles.selected.output.setFormat(value!, value);
-                                      extController.text = value;
+                                      _listFiles.selected.output.setFormat(value!, value);
+                                      _extController.text = value;
                                     }
                                   },
                                   decoration: const InputDecoration(),
@@ -212,8 +211,8 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                     style: TextStyle(color: AppTheme.colorScheme.primary),
                                   ),
                                   isExpanded: true,
-                                  value: listFiles.selected.output.format.key,
-                                  items: conversionFormats.map((e) {
+                                  value: _listFiles.selected.output.format.key,
+                                  items: _conversionFormats.map((e) {
                                     return DropdownMenuItem(
                                       value: e,
                                       child: Text(e),
@@ -225,9 +224,9 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                             const SizedBox(width: 8),
                             Expanded(child: Observer(
                               builder: (_) => TextFormField(
-                                controller: extController,
+                                controller: _extController,
                                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp('([A-Za-z0-9])+'))],
-                                readOnly: !('Customizado'.contains(listFiles.selected.output.format.key)),
+                                readOnly: !('Customizado'.contains(_listFiles.selected.output.format.key)),
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(FontAwesomeIcons.filePen, size: 20),
                                   labelText: 'Extenção',
@@ -238,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                         ),
                       ]),
 
-                      if(listFiles.selected.output.type == MediaType.image || listFiles.selected.output.type == MediaType.video)
+                      if(_listFiles.selected.output.type == MediaType.image || _listFiles.selected.output.type == MediaType.video)
                         CustomCard(title: 'Qualidade', children: [
                           Row(
                             children: [
@@ -251,25 +250,25 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                       final int width;
 
                                       if(value!.descricao == 'Manter') {
-                                        height = listFiles.selected.height;
-                                        width = listFiles.selected.width;
+                                        height = _listFiles.selected.height;
+                                        width = _listFiles.selected.width;
                                       } else if(value.descricao == 'Customizado') {
                                         height = width = 0;
                                       } else {
                                         height = value.valor;
-                                        width = (height*listFiles.selected.aspectRatio).round();
+                                        width = (height*_listFiles.selected.aspectRatio).round();
                                       }
 
-                                      listFiles.selected.output.setSize(value, width, height);
-                                      widthController.text = width > 0 ? width.toString() : '';
-                                      heightController.text = height > 0 ? height.toString() : '';
+                                      _listFiles.selected.output.setSize(value, width, height);
+                                      _widthController.text = width > 0 ? width.toString() : '';
+                                      _heightController.text = height > 0 ? height.toString() : '';
                                     },
                                     hint: Text(
                                       'Selecione a qualidade',
                                       style: TextStyle(color: AppTheme.colorScheme.primary),
                                     ),
                                     isExpanded: true,
-                                    value: listFiles.selected.output.size.quality,
+                                    value: _listFiles.selected.output.size.quality,
                                     items: MediaQuality.values.map((e) {
                                       return DropdownMenuItem(
                                         value: e,
@@ -284,8 +283,8 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                 child: TextFormField(
                                   textAlign: TextAlign.end,
                                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                  readOnly: listFiles.selected.output.size.quality != MediaQuality.custom,
-                                  controller: widthController,
+                                  readOnly: _listFiles.selected.output.size.quality != MediaQuality.custom,
+                                  controller: _widthController,
                                   decoration: const InputDecoration(labelText: 'Largura'),
                                 ),
                               ),
@@ -297,8 +296,8 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                 child: Observer(
                                   builder: (_) => TextFormField(
                                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                    readOnly: listFiles.selected.output.size.quality != MediaQuality.custom,
-                                    controller: heightController,
+                                    readOnly: _listFiles.selected.output.size.quality != MediaQuality.custom,
+                                    controller: _heightController,
                                     decoration: const InputDecoration(labelText: 'Altura'),
                                   ),
                                 ),
@@ -307,18 +306,18 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                           ),
                         ]),
 
-                      if(listFiles.selected.output.type == MediaType.video) CustomCard(title: 'Legendas', children: [
+                      if(_listFiles.selected.output.type == MediaType.video) CustomCard(title: 'Legendas', children: [
                         Row(
                           children: [
                             Expanded(
                               child: TextFormField(
                                 readOnly: true,
-                                controller: subtitleController,
+                                controller: _subtitleController,
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(FontAwesomeIcons.closedCaptioning, size: 20),
                                   labelText: 'Arquivo de legenda',
                                 ),
-                                onChanged: (value) => listFiles.selected.output.subtitles = value,
+                                onChanged: (value) => _listFiles.selected.output.subtitles = value,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -327,12 +326,12 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                                 final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['srt', 'ass']);
                                 if (result != null) {
                                   PlatformFile file = result.files.first;
-                                  listFiles.selected.output.subtitles = file.path ?? '';
+                                  _listFiles.selected.output.subtitles = file.path ?? '';
                                 } else {
-                                  listFiles.selected.output.subtitles = '';
+                                  _listFiles.selected.output.subtitles = '';
                                 }
 
-                                subtitleController.text = listFiles.selected.output.subtitles;
+                                _subtitleController.text = _listFiles.selected.output.subtitles;
                               },
                               icon: const Icon(FontAwesomeIcons.solidFolder, size: 20),
                             ),
@@ -342,22 +341,22 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
 
                       CustomCard(title: 'Converter', children: [
                         Container(
-                          decoration: boxDecoration,
+                          decoration: _boxDecoration,
                           child: ListTile(
                             trailing: Switch(
-                              value: useSameSettings,
-                              onChanged: (value) => useSameSettings = value,
+                              value: _useSameSettings,
+                              onChanged: (value) => setState(() => _useSameSettings = value),
                             ),
                             title: const Text('Usar essas configurações em todos os arquivos selecionados'),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          decoration: boxDecoration,
+                          decoration: _boxDecoration,
                           child: ListTile(
                             trailing: Switch(
-                              value: convertAll,
-                              onChanged: (value) => convertAll = value,
+                              value: _convertAll,
+                              onChanged: (value) => setState(() => _convertAll = value),
                             ),
                             title: const Text('Converter todos os arquivos selecionados'),
                           ),
@@ -365,23 +364,7 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
 
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
-                          onPressed: (){
-                            print('---------------------------------------------');
-                            print(listFiles.selected.toString());
-                            print('---------------------------------------------');
-
-                            ValidateException(erros: {
-                              'File1': [
-                                'Erro 1',
-                                'Erro 2',
-                              ],
-                              'File2': [
-                                'Erro 1',
-                                'Erro 2',
-                                'Erro 3',
-                              ],
-                            }).show(context);
-                          },
+                          onPressed: _convert,
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
@@ -398,9 +381,86 @@ class _HomeScreenState extends State<HomeScreen> with HomeMixin {
                   );
                 }
 
-                return emptyForm();
+                return _emptyForm();
               }
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadFiles() {
+    showLoadingDialog(context, operation: () async {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+
+      if(result == null) {
+        throw ValidateException(erros: {
+          'Arquivo não identificado': ['Falha ao carregar arquivo. Verifique se o arquivo é uma mídia de vídeo, áudio ou imagem.']
+        });
+      }
+
+      _ffprobe = FFprobe(result.files);
+      _listFiles.addAll(await _ffprobe.getMediaFiles());
+
+      _ffprobe.throwErrors();
+    });
+  }
+
+  void _convert() {
+    print('---------------------------------------------');
+    print(_listFiles.selected.toString());
+    print('---------------------------------------------');
+
+    showLoadingDialog(context, operation: () async {
+      if(_convertAll) {
+        _ffmpeg = FFmpeg.fromList(_listFiles.files);
+        if(_useSameSettings) {
+          Validate.validateMediaFile(_listFiles.selected);
+        } else {
+          Validate.validateListMediaFile(_listFiles.files);
+        }
+      } else {
+        _ffmpeg = FFmpeg(_listFiles.selected);
+        Validate.validateMediaFile(_listFiles.selected);
+      }
+
+      _ffmpeg.prepareStatement(_useSameSettings ? _listFiles.selected.output : null);
+      print('ffmpeg ${_convertAll ? _ffmpeg.argumentList.map((e) => e.join(' ')) : _ffmpeg.arguments.join(' ')}');
+      print('__________________________________________________________________________________________________________________________');
+    });
+  }
+
+  Widget _emptyForm() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(FontAwesomeIcons.solidFileVideo, size: 200),
+          const SizedBox(height: 24),
+          Text(
+            'Aqui aparecerão as configurações do arquivo selecionado na lista ao lado',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.colorScheme.primary, fontSize: 32),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyList() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.note_add_rounded, size: 240),
+          const SizedBox(height: 24),
+          Text(
+            'Adicione arquivos clicando no botão abaixo',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.colorScheme.primary, fontSize: 32),
           ),
         ],
       ),

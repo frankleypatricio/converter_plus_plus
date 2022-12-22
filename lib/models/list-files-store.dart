@@ -24,6 +24,11 @@ abstract class _ListFilesStore with Store {
   }
 
   @action
+  void addAll(List<MediaFile> list) {
+    files.addAll(list);
+  }
+
+  @action
   void clear() {
     files.clear();
   }

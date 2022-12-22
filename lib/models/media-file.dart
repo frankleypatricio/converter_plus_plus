@@ -16,6 +16,7 @@ class MediaFile {
   late final int height;
 
   String get fullName => '$name.$extension';
+  String get fullPath => '$path\\$name.$extension';
 
   MediaFile.teste() {
     path = 'D:\\Pictures\\Airship.jpg';
@@ -36,16 +37,17 @@ class MediaFile {
     );
   }
   MediaFile(PlatformFile file, Map<String, dynamic> streams) {
-    path = file.path!;
     extension = file.extension!;
     name = file.name.replaceAll('.$extension', '');
-    width = streams['width'];
-    height = streams['height'];
+    path = file.path!.replaceAll('\\$fullName', '');
 
     if(streams['codec_type'] == 'audio') {
       type = MediaType.audio;
+      width = height = 0;
     } else {
       type = streams.containsKey('nb_frames') ? MediaType.video : MediaType.image;
+      width = streams['width'];
+      height = streams['height'];
       aspectRatio = width/height;
     }
 
