@@ -13,8 +13,8 @@ Future<void> showLoadingDialog(BuildContext context, {required AsyncCallback ope
       onWillPop: () => Future(() => false),
       child: Dialog(
         elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 30),
-        child: Padding(
+        child: Container(
+          width: 350,
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 35),
           child: Row(
             children: [

@@ -1,6 +1,7 @@
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
+import 'package:converter_plus_plus/models/conversion-results.dart';
 import 'package:mobx/mobx.dart';
 
 part 'output-settings.g.dart';
@@ -15,6 +16,7 @@ abstract class _OutputSettings with Store {
   String subtitles = '';
   ReplaceFile replaceFile = ReplaceFile.ask;
   @observable bool checked = true;
+  @observable ConversionResults? conversionResults;
 
   String get fullPath => '$path\\$name.${format.extension}';
   String get scale => '${size.width}:${size.height}';
@@ -33,6 +35,10 @@ abstract class _OutputSettings with Store {
   }
 
   @action void setChecked(bool value) => checked = value;
+
+  @action void setConversionResults(bool success, [String message = '']) {
+    conversionResults = ConversionResults(success, message);
+  }
 
   @action
   void setSize(MediaQuality quality, int width, int height) {

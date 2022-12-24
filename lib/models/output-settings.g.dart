@@ -71,6 +71,22 @@ mixin _$OutputSettings on _OutputSettings, Store {
     });
   }
 
+  late final _$conversionResultsAtom =
+      Atom(name: '_OutputSettings.conversionResults', context: context);
+
+  @override
+  ConversionResults? get conversionResults {
+    _$conversionResultsAtom.reportRead();
+    return super.conversionResults;
+  }
+
+  @override
+  set conversionResults(ConversionResults? value) {
+    _$conversionResultsAtom.reportWrite(value, super.conversionResults, () {
+      super.conversionResults = value;
+    });
+  }
+
   late final _$_OutputSettingsActionController =
       ActionController(name: '_OutputSettings', context: context);
 
@@ -80,6 +96,17 @@ mixin _$OutputSettings on _OutputSettings, Store {
         name: '_OutputSettings.setChecked');
     try {
       return super.setChecked(value);
+    } finally {
+      _$_OutputSettingsActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setConversionResults(bool success, [String message = '']) {
+    final _$actionInfo = _$_OutputSettingsActionController.startAction(
+        name: '_OutputSettings.setConversionResults');
+    try {
+      return super.setConversionResults(success, message);
     } finally {
       _$_OutputSettingsActionController.endAction(_$actionInfo);
     }
@@ -124,7 +151,8 @@ mixin _$OutputSettings on _OutputSettings, Store {
 type: ${type},
 format: ${format},
 size: ${size},
-checked: ${checked}
+checked: ${checked},
+conversionResults: ${conversionResults}
     ''';
   }
 }

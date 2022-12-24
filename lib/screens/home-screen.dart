@@ -5,7 +5,7 @@ import 'package:converter_plus_plus/enums/replace-file.dart';
 import 'package:converter_plus_plus/exceptions/validate-exception.dart';
 import 'package:converter_plus_plus/helpers/ffmpeg.dart';
 import 'package:converter_plus_plus/helpers/validate.dart';
-import 'package:converter_plus_plus/helpers/loading-dialog.dart';
+import 'package:converter_plus_plus/dialogs/loading-dialog.dart';
 import 'package:converter_plus_plus/models/list-files-store.dart';
 import 'package:converter_plus_plus/theme.dart';
 import 'package:file_picker/file_picker.dart';
@@ -68,16 +68,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => ListTile(
                       selectedTileColor: AppTheme.colorScheme.primary.withOpacity(.25),
                       selected: index == _listFiles.selectedIndex,
-                      tileColor: index%2 == 1 ? AppTheme.colorScheme.secondary : null,
+                      tileColor: (index%2 == 1) ? AppTheme.colorScheme.secondary : null,
+
                       leading: Icon(_listFiles.files[index].type.icon),
-                      trailing: Checkbox(
-                        checkColor: Colors.black,
-                        value: _listFiles.files[index].output.checked,
-                        onChanged: (value){
-                          _listFiles.files[index].output.setChecked(value!);
-                        },
-                      ),
                       title: Text(_listFiles.files[index].fullName),
+
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if(_listFiles.files[index].output.conversionResults != null) Tooltip(
+                            message: _listFiles.files[index].output.conversionResults!.message,
+                            child: const Icon(Icons.warning_rounded, color: Colors.redAccent),
+                          ),
+                          Checkbox(
+                            checkColor: Colors.black,
+                            value: _listFiles.files[index].output.checked,
+                            onChanged: (value){
+                              _listFiles.files[index].output.setChecked(value!);
+                            },
+                          ),
+                        ],
+                      ),
+
                       onTap: () {
                         _listFiles.setSelectedIndex(index);
                       },
@@ -391,6 +403,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _loadFiles() {
+    /*showLoadingDialog(context, operation: () async {
+      await Future.delayed(const Duration(seconds: 1));
+      throw ValidateException(erros: {'a': ['aaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb']});
+    });*/
+    // FFmpeg.fromList(_listFiles.files).start(context);
     showLoadingDialog(context, operation: () async {
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
 
@@ -428,6 +445,19 @@ class _HomeScreenState extends State<HomeScreen> {
       _ffmpeg.prepareStatement(_useSameSettings ? _listFiles.selected.output : null);
       print('ffmpeg ${_convertAll ? _ffmpeg.argumentList.map((e) => e.join(' ')) : _ffmpeg.arguments.join(' ')}');
       print('__________________________________________________________________________________________________________________________');
+
+      await _ffmpeg.start(context);
+      if(_convertAll) {
+        for(var file in _listFiles.files) {
+          if(file.output.conversionResults?.success == true) {
+            _listFiles.remove(file);
+          }
+        }
+      } else {
+        if(_listFiles.selected.output.conversionResults?.success == true) {
+          _listFiles.remove(_listFiles.selected);
+        }
+      }
     });
   }
 
