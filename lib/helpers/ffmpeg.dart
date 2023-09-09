@@ -324,6 +324,6 @@ class FFprobe {
 }
 
 class FFmpegConfig {
-  static String ffmpegPath = 'C:/Projetos/_meus-projetos/converter_plus_plus/ffmpeg.exe';
-  static String ffprobePath = 'C:/Projetos/_meus-projetos/converter_plus_plus/ffprobe.exe';
+  static String ffmpegPath = 'D:/htdocs/Flutter Projects/converter_plus_plus/ffmpeg.exe';
+  static String ffprobePath = 'D:/htdocs/Flutter Projects/converter_plus_plus/ffprobe.exe';
 }

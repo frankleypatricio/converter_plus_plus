@@ -12,7 +12,6 @@ class AppTheme {
   ThemeData get theme => ThemeData.dark().copyWith(
     primaryColor: colorScheme.primary,
     colorScheme: colorScheme,
-    toggleableActiveColor: colorScheme.primary,
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: elevatedButtonStyle()
     ),
@@ -67,8 +66,8 @@ class AppTheme {
   );
 
   TextTheme textTheme() => TextTheme(
-    bodyText1: TextStyle(color: colorScheme.onBackground, fontSize: 20, fontWeight: FontWeight.w600),
-    bodyText2: TextStyle(color: colorScheme.onBackground),
+    bodyLarge: TextStyle(color: colorScheme.onBackground, fontSize: 20, fontWeight: FontWeight.w600),
+    bodyMedium: TextStyle(color: colorScheme.onBackground),
   );
 
   BottomAppBarTheme bottomAppBarTheme() => BottomAppBarTheme(
