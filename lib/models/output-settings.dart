@@ -34,9 +34,11 @@ abstract class _OutputSettings with Store {
     format.extension = defaultExtension;
   }
 
-  @action void setChecked(bool value) => checked = value;
+  @action
+  void setChecked(bool value) => checked = value;
 
-  @action void setConversionResults(bool success, [String message = '']) {
+  @action
+  void setConversionResults(bool success, [String message = 'Conversão concluída com sucesso.']) {
     conversionResults = ConversionResults(success, message);
   }
 

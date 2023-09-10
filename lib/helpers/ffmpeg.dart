@@ -1,55 +1,39 @@
-import 'dart:convert' show jsonDecode, utf8;
 import 'dart:io';
 
 import 'package:converter_plus_plus/dialogs/confirm-dialog.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
-import 'package:converter_plus_plus/exceptions/validate-exception.dart';
-import 'package:converter_plus_plus/helpers/validate.dart';
 import 'package:converter_plus_plus/models/media-file.dart';
 import 'package:converter_plus_plus/models/output-settings.dart';
 import 'package:converter_plus_plus/models/progress-controller.dart';
 import 'package:converter_plus_plus/theme.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 
 class FFmpeg {
   final delay = const Duration(milliseconds: 500);
 
-  late final bool single;
   late final ProgressController _progressController;
   Process? _process;
   String? _conversionFormat;
 
-  late final MediaFile? file;
-  final List<String> arguments = [];
-
-  late final List<MediaFile>? files;
+  late final List<MediaFile> files;
   final List<List<String>> argumentList = [];
 
-
-  FFmpeg(this.file) {
-    files = null;
-    single = true;
+  FFmpeg(MediaFile file) {
+    files = [file];
     _progressController = ProgressController(1);
   }
   FFmpeg.fromList(this.files) {
-    file = null;
-    single = false;
     // _progressController = ProgressController(5);
-    _progressController = ProgressController(files!.length);
+    _progressController = ProgressController(files.length);
   }
 
   void prepareStatement(OutputSettings? output) {
-    if(single) {
-      _prepareStatement(file!, output);
-    } else {
-      for(var file in files!) {
-        if(file.output.checked) {
-          argumentList.add(_prepareStatement(file, output).toList());
-        }
+    for(var file in files) {
+      if(file.output.checked) {
+        argumentList.add(_prepareStatement(file, output).toList());
       }
     }
   }
@@ -57,7 +41,7 @@ class FFmpeg {
   List<String> _prepareStatement(MediaFile file, OutputSettings? gOutput) {
     _conversionFormat = gOutput?.format.extension;
     final output = gOutput ?? file.output;
-    arguments.clear();
+    final List<String> arguments = [];
 
     // input file url
     arguments.addAll(['-i', file.fullPath]);
@@ -196,49 +180,27 @@ class FFmpeg {
       _progressController.incrementProgress();
     }*/
 
-    //TODO: Depois, melhorar essa lógica
-    int exitCode;
-    if(single) {
-      exitCode = await _run(arguments);
+    for(int i=0; i<files.length; i++) {
+      int exitCode = await _run(argumentList[i]);
 
       if(exitCode == 0) {
-        file!.output.setConversionResults(true);
+        files[i].output.setConversionResults(true);
 
       } else if(exitCode == 1) {
-        file!.output.setConversionResults(false,
-          'Não foi possível converter o formato ${file!.extension}'
-          'para ${_conversionFormat ?? file!.output.format.extension}.',
+        files[i].output.setConversionResults(false,
+          'Houve uma falha ao converter o formato ${files[i].extension} '
+              'para ${_conversionFormat ?? files[i].output.format.extension}.',
         );
 
       } else { // -1
-        file!.output.setConversionResults(false,
+        files[i].output.setConversionResults(false,
           'Conversão cancelada antes da conclusão.',
         );
         //TODO: Deletar aquivo que ficou de lixo ao cancelar conversão
+        break;
       }
 
-    } else {
-      for(var args in argumentList) {
-        exitCode = await _run(args);
-
-        if(exitCode == 0) {
-          file!.output.setConversionResults(true);
-
-        } else if(exitCode == 1) {
-          file!.output.setConversionResults(false,
-            'Não foi possível converter o formato ${file!.extension}'
-            'para ${_conversionFormat ?? file!.output.format.extension}.',
-          );
-
-        } else { // -1
-          file!.output.setConversionResults(false,
-            'Conversão cancelada antes da conclusão.',
-          );
-          break;
-        }
-
-        await Future.delayed(delay);
-      }
+      await Future.delayed(delay);
     }
 
     await Future.delayed(delay);
@@ -276,50 +238,6 @@ class FFmpeg {
 
     print('exit code: ${await _process!.exitCode}');
     stdout.flush();
-  }
-}
-
-class FFprobe {
-  final List<PlatformFile> files;
-  final Map<String, List<String>> erros = {};
-
-  FFprobe(this.files);
-
-  Future<List<MediaFile>> getMediaFiles() async {
-    final List<MediaFile> mediaFiles = [];
-    Map<String, dynamic>? tempMedia;
-
-    for(var file in files) {
-      tempMedia = await getFileStreams(file.path!, file);
-      if(tempMedia != null) {
-        mediaFiles.add(MediaFile(file, tempMedia));
-      }
-    }
-
-    return mediaFiles;
-  }
-
-  Future<Map<String, dynamic>?> getFileStreams(String filePath, PlatformFile file) async {
-    final streams = await Process.run(
-      FFmpegConfig.ffprobePath,
-      ['-loglevel', '0', '-print_format', 'json', '-show_streams', filePath],
-    );
-
-    final stdout = jsonDecode(streams.stdout);
-    try {
-      Validate.validateFilePicked(file, stdout);
-    } on ValidateException catch(e) {
-      erros.addAll(e.erros);
-      return null;
-    }
-
-    return stdout['streams'][0];
-  }
-
-  void throwErrors() {
-    if(erros.isNotEmpty) {
-      throw ValidateException(erros: erros);
-    }
   }
 }
 

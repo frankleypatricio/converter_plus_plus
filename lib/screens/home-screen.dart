@@ -1,11 +1,12 @@
 import 'package:converter_plus_plus/components/custom-card.dart';
+import 'package:converter_plus_plus/dialogs/loading-dialog.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
 import 'package:converter_plus_plus/exceptions/validate-exception.dart';
 import 'package:converter_plus_plus/helpers/ffmpeg.dart';
+import 'package:converter_plus_plus/helpers/ffprobe.dart';
 import 'package:converter_plus_plus/helpers/validate.dart';
-import 'package:converter_plus_plus/dialogs/loading-dialog.dart';
 import 'package:converter_plus_plus/models/list-files-store.dart';
 import 'package:converter_plus_plus/theme.dart';
 import 'package:file_picker/file_picker.dart';
@@ -60,39 +61,46 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Observer(
               builder: (_) {
+                final mediaScrollController = ScrollController();
                 return _listFiles.files.isNotEmpty
-                ? ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80),
-                  itemCount: _listFiles.files.length,
-                  itemBuilder: (_, index) => Observer(
-                    builder: (_) => ListTile(
-                      selectedTileColor: AppTheme.colorScheme.primary.withOpacity(.25),
-                      selected: index == _listFiles.selectedIndex,
-                      tileColor: (index%2 == 1) ? AppTheme.colorScheme.secondary : null,
+                ? Scrollbar(
+                  controller: mediaScrollController,
+                  thumbVisibility: true,
+                  child: ListView.builder(
+                    controller: mediaScrollController,
+                    padding: const EdgeInsets.only(bottom: 80),
+                    itemCount: _listFiles.files.length,
+                    itemBuilder: (_, index) => Observer(
+                      builder: (_) => ListTile(
+                        selectedTileColor: AppTheme.colorScheme.primary.withOpacity(.25),
+                        selected: index == _listFiles.selectedIndex,
+                        tileColor: (index%2 == 1) ? AppTheme.colorScheme.secondary : null,
 
-                      leading: Icon(_listFiles.files[index].type.icon),
-                      title: Text(_listFiles.files[index].fullName),
+                        leading: Icon(_listFiles.files[index].type.icon),
+                        title: Text(_listFiles.files[index].fullName),
 
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if(_listFiles.files[index].output.conversionResults != null) Tooltip(
-                            message: _listFiles.files[index].output.conversionResults!.message,
-                            child: const Icon(Icons.warning_rounded, color: Colors.redAccent),
-                          ),
-                          Checkbox(
-                            checkColor: Colors.black,
-                            value: _listFiles.files[index].output.checked,
-                            onChanged: (value){
-                              _listFiles.files[index].output.setChecked(value!);
-                            },
-                          ),
-                        ],
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if(_listFiles.files[index].output.conversionResults != null)
+                              _listFiles.files[index].output.conversionResults!.tooltip,
+                            IconButton(
+                              onPressed: () => _listFiles.files.removeAt(index),
+                              icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+                              tooltip: "Remover",
+                            ),
+                            Checkbox(
+                              checkColor: Colors.black,
+                              value: _listFiles.files[index].output.checked,
+                              onChanged: (value){
+                                _listFiles.files[index].output.setChecked(value!);
+                              },
+                            ),
+                          ],
+                        ),
+
+                        onTap: () =>  _listFiles.setSelectedIndex(index),
                       ),
-
-                      onTap: () {
-                        _listFiles.setSelectedIndex(index);
-                      },
                     ),
                   ),
                 )
@@ -116,172 +124,88 @@ class _HomeScreenState extends State<HomeScreen> {
                   _nomeController.text = _listFiles.selected.output.name;
                   _conversionFormats = _listFiles.selected.getConversionFormats();
 
-                  return ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    children: [
-                      CustomCard(title: 'Saída', children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                readOnly: true,
-                                controller: _pathController,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(FontAwesomeIcons.folderOpen, size: 20),
-                                  labelText: 'Pasta de saída',
-                                ),
-                                onChanged: (value) => _listFiles.selected.output.path = value,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: () async {
-                                final result = await FilePicker.platform.getDirectoryPath();
-                                _listFiles.selected.output.path = result ?? '';
-                                _pathController.text = _listFiles.selected.output.path;
-                              },
-                              icon: const Icon(FontAwesomeIcons.solidFolder, size: 20),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _nomeController,
-                          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'([/|<>:*"?\u005C])+'))],
-                          onChanged: (value) => _listFiles.selected.output.name = value,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(FontAwesomeIcons.fileSignature, size: 20),
-                            labelText: 'Nome do arquivo de saída',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField(
-                          onChanged: (value) => _listFiles.selected.output.replaceFile = value!,
-                          isExpanded: true,
-                          value: _listFiles.selected.output.replaceFile,
-                          items: ReplaceFile.values.map((e) {
-                            return DropdownMenuItem(
-                              value: e,
-                              child: Text(e.descricao),
-                            );
-                          }).toList(),
-                        ),
-                      ]),
-
-                      CustomCard(title: 'Formato', children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Observer(
-                                builder: (_) => DropdownButtonFormField(
-                                  onChanged: (value) {
-                                    if(value != _listFiles.selected.output.type) {
-                                      _listFiles.selected.output.setType(value!);
-                                      _conversionFormats = _listFiles.selected.getConversionFormats();
-                                      final format = _conversionFormats.first;
-
-                                      if(format == 'Manter') {
-                                        _listFiles.selected.output.setFormat(format, _listFiles.selected.extension);
-                                        _extController.text = _listFiles.selected.extension;
-                                      } else {
-                                        _listFiles.selected.output.setFormat(format, format);
-                                        _extController.text = format;
-                                      }
-                                    }
-                                  },
-                                  decoration: const InputDecoration(),
-                                  isExpanded: true,
-                                  value: _listFiles.selected.output.type,
-                                  items: _listFiles.selected.getConversionTypes().map((e) {
-                                    return DropdownMenuItem(
-                                      value: e,
-                                      child: Text(e.descricao),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Observer(
-                                builder: (_) => DropdownButtonFormField(
-                                  onChanged: (value) {
-                                    if(value == 'Manter') {
-                                      _listFiles.selected.output.setFormat(value!, _listFiles.selected.extension);
-                                      _extController.text = _listFiles.selected.extension;
-                                    } else if(value == 'Customizado') {
-                                      _listFiles.selected.output.setFormat(value!, '');
-                                      _extController.text = '';
-                                    } else {
-                                      _listFiles.selected.output.setFormat(value!, value);
-                                      _extController.text = value;
-                                    }
-                                  },
-                                  decoration: const InputDecoration(),
-                                  hint: Text(
-                                    'Formato',
-                                    style: TextStyle(color: AppTheme.colorScheme.primary),
-                                  ),
-                                  isExpanded: true,
-                                  value: _listFiles.selected.output.format.key,
-                                  items: _conversionFormats.map((e) {
-                                    return DropdownMenuItem(
-                                      value: e,
-                                      child: Text(e),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(child: Observer(
-                              builder: (_) => TextFormField(
-                                controller: _extController,
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp('([A-Za-z0-9])+'))],
-                                readOnly: !('Customizado'.contains(_listFiles.selected.output.format.key)),
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(FontAwesomeIcons.filePen, size: 20),
-                                  labelText: 'Extenção',
-                                ),
-                              ),
-                            )),
-                          ],
-                        ),
-                      ]),
-
-                      if(_listFiles.selected.output.type == MediaType.image || _listFiles.selected.output.type == MediaType.video)
-                        CustomCard(title: 'Qualidade', children: [
+                  final formScrollController = ScrollController();
+                  return Scrollbar(
+                    controller: formScrollController,
+                    thumbVisibility: true,
+                    child: ListView(
+                      controller: formScrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      children: [
+                        CustomCard(title: 'Saída', children: [
                           Row(
                             children: [
                               Expanded(
-                                flex: 2,
+                                child: TextFormField(
+                                  readOnly: true,
+                                  controller: _pathController,
+                                  decoration: const InputDecoration(
+                                    prefixIcon: Icon(FontAwesomeIcons.folderOpen, size: 20),
+                                    labelText: 'Pasta de saída',
+                                  ),
+                                  onChanged: (value) => _listFiles.selected.output.path = value,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () async {
+                                  final result = await FilePicker.platform.getDirectoryPath();
+                                  _listFiles.selected.output.path = result ?? '';
+                                  _pathController.text = _listFiles.selected.output.path;
+                                },
+                                icon: const Icon(FontAwesomeIcons.solidFolder, size: 20),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _nomeController,
+                            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'([/|<>:*"?\u005C])+'))],
+                            onChanged: (value) => _listFiles.selected.output.name = value,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(FontAwesomeIcons.fileSignature, size: 20),
+                              labelText: 'Nome do arquivo de saída',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField(
+                            onChanged: (value) => _listFiles.selected.output.replaceFile = value!,
+                            isExpanded: true,
+                            value: _listFiles.selected.output.replaceFile,
+                            items: ReplaceFile.values.map((e) {
+                              return DropdownMenuItem(
+                                value: e,
+                                child: Text(e.descricao),
+                              );
+                            }).toList(),
+                          ),
+                        ]),
+
+                        CustomCard(title: 'Formato', children: [
+                          Row(
+                            children: [
+                              Expanded(
                                 child: Observer(
                                   builder: (_) => DropdownButtonFormField(
                                     onChanged: (value) {
-                                      final int height;
-                                      final int width;
+                                      if(value != _listFiles.selected.output.type) {
+                                        _listFiles.selected.output.setType(value!);
+                                        _conversionFormats = _listFiles.selected.getConversionFormats();
+                                        final format = _conversionFormats.first;
 
-                                      if(value!.descricao == 'Manter') {
-                                        height = _listFiles.selected.height;
-                                        width = _listFiles.selected.width;
-                                      } else if(value.descricao == 'Customizado') {
-                                        height = width = 0;
-                                      } else {
-                                        height = value.valor;
-                                        width = (height*_listFiles.selected.aspectRatio).round();
+                                        if(format == 'Manter') {
+                                          _listFiles.selected.output.setFormat(format, _listFiles.selected.extension);
+                                          _extController.text = _listFiles.selected.extension;
+                                        } else {
+                                          _listFiles.selected.output.setFormat(format, format);
+                                          _extController.text = format;
+                                        }
                                       }
-
-                                      _listFiles.selected.output.setSize(value, width, height);
-                                      _widthController.text = width > 0 ? width.toString() : '';
-                                      _heightController.text = height > 0 ? height.toString() : '';
                                     },
-                                    hint: Text(
-                                      'Selecione a qualidade',
-                                      style: TextStyle(color: AppTheme.colorScheme.primary),
-                                    ),
+                                    decoration: const InputDecoration(),
                                     isExpanded: true,
-                                    value: _listFiles.selected.output.size.quality,
-                                    items: MediaQuality.values.map((e) {
+                                    value: _listFiles.selected.output.type,
+                                    items: _listFiles.selected.getConversionTypes().map((e) {
                                       return DropdownMenuItem(
                                         value: e,
                                         child: Text(e.descricao),
@@ -292,104 +216,194 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: TextFormField(
-                                  textAlign: TextAlign.end,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                  readOnly: _listFiles.selected.output.size.quality != MediaQuality.custom,
-                                  controller: _widthController,
-                                  decoration: const InputDecoration(labelText: 'Largura'),
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
-                                child: Icon(Icons.close_rounded),
-                              ),
-                              Expanded(
                                 child: Observer(
-                                  builder: (_) => TextFormField(
-                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                    readOnly: _listFiles.selected.output.size.quality != MediaQuality.custom,
-                                    controller: _heightController,
-                                    decoration: const InputDecoration(labelText: 'Altura'),
+                                  builder: (_) => DropdownButtonFormField(
+                                    onChanged: (value) {
+                                      if(value == 'Manter') {
+                                        _listFiles.selected.output.setFormat(value!, _listFiles.selected.extension);
+                                        _extController.text = _listFiles.selected.extension;
+                                      } else if(value == 'Customizado') {
+                                        _listFiles.selected.output.setFormat(value!, '');
+                                        _extController.text = '';
+                                      } else {
+                                        _listFiles.selected.output.setFormat(value!, value);
+                                        _extController.text = value;
+                                      }
+                                    },
+                                    decoration: const InputDecoration(),
+                                    hint: Text(
+                                      'Formato',
+                                      style: TextStyle(color: AppTheme.colorScheme.primary),
+                                    ),
+                                    isExpanded: true,
+                                    value: _listFiles.selected.output.format.key,
+                                    items: _conversionFormats.map((e) {
+                                      return DropdownMenuItem(
+                                        value: e,
+                                        child: Text(e),
+                                      );
+                                    }).toList(),
                                   ),
                                 ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(child: Observer(
+                                builder: (_) => TextFormField(
+                                  controller: _extController,
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp('([A-Za-z0-9])+'))],
+                                  readOnly: !('Customizado'.contains(_listFiles.selected.output.format.key)),
+                                  decoration: const InputDecoration(
+                                    prefixIcon: Icon(FontAwesomeIcons.filePen, size: 20),
+                                    labelText: 'Extenção',
+                                  ),
+                                ),
+                              )),
+                            ],
+                          ),
+                        ]),
+
+                        if(_listFiles.selected.output.type == MediaType.image || _listFiles.selected.output.type == MediaType.video)
+                          CustomCard(title: 'Qualidade', children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: Observer(
+                                    builder: (_) => DropdownButtonFormField(
+                                      onChanged: (value) {
+                                        final int height;
+                                        final int width;
+
+                                        if(value!.descricao == 'Manter') {
+                                          height = _listFiles.selected.height;
+                                          width = _listFiles.selected.width;
+                                        } else if(value.descricao == 'Customizado') {
+                                          height = width = 0;
+                                        } else {
+                                          height = value.valor;
+                                          width = (height*_listFiles.selected.aspectRatio).round();
+                                        }
+
+                                        _listFiles.selected.output.setSize(value, width, height);
+                                        _widthController.text = width > 0 ? width.toString() : '';
+                                        _heightController.text = height > 0 ? height.toString() : '';
+                                      },
+                                      hint: Text(
+                                        'Selecione a qualidade',
+                                        style: TextStyle(color: AppTheme.colorScheme.primary),
+                                      ),
+                                      isExpanded: true,
+                                      value: _listFiles.selected.output.size.quality,
+                                      items: MediaQuality.values.map((e) {
+                                        return DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e.descricao),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    textAlign: TextAlign.end,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                    readOnly: _listFiles.selected.output.size.quality != MediaQuality.custom,
+                                    controller: _widthController,
+                                    decoration: const InputDecoration(labelText: 'Largura'),
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  child: Icon(Icons.close_rounded),
+                                ),
+                                Expanded(
+                                  child: Observer(
+                                    builder: (_) => TextFormField(
+                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      readOnly: _listFiles.selected.output.size.quality != MediaQuality.custom,
+                                      controller: _heightController,
+                                      decoration: const InputDecoration(labelText: 'Altura'),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ]),
+
+                        if(_listFiles.selected.output.type == MediaType.video) CustomCard(title: 'Legendas', children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  readOnly: true,
+                                  controller: _subtitleController,
+                                  decoration: const InputDecoration(
+                                    prefixIcon: Icon(FontAwesomeIcons.closedCaptioning, size: 20),
+                                    labelText: 'Arquivo de legenda',
+                                  ),
+                                  onChanged: (value) => _listFiles.selected.output.subtitles = value,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () async {
+                                  final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['srt', 'ass']);
+                                  if (result != null) {
+                                    PlatformFile file = result.files.first;
+                                    _listFiles.selected.output.subtitles = file.path ?? '';
+                                  } else {
+                                    _listFiles.selected.output.subtitles = '';
+                                  }
+
+                                  _subtitleController.text = _listFiles.selected.output.subtitles;
+                                },
+                                icon: const Icon(FontAwesomeIcons.solidFolder, size: 20),
                               ),
                             ],
                           ),
                         ]),
 
-                      if(_listFiles.selected.output.type == MediaType.video) CustomCard(title: 'Legendas', children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                readOnly: true,
-                                controller: _subtitleController,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(FontAwesomeIcons.closedCaptioning, size: 20),
-                                  labelText: 'Arquivo de legenda',
-                                ),
-                                onChanged: (value) => _listFiles.selected.output.subtitles = value,
+                        CustomCard(title: 'Converter', children: [
+                          Container(
+                            decoration: _boxDecoration,
+                            child: ListTile(
+                              trailing: Switch(
+                                value: _useSameSettings,
+                                onChanged: (value) => setState(() => _useSameSettings = value),
+                              ),
+                              title: const Text('Usar essas configurações em todos os arquivos selecionados'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: _boxDecoration,
+                            child: ListTile(
+                              trailing: Switch(
+                                value: _convertAll,
+                                onChanged: (value) => setState(() => _convertAll = value),
+                              ),
+                              title: const Text('Converter todos os arquivos selecionados'),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: _convert,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: () async {
-                                final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['srt', 'ass']);
-                                if (result != null) {
-                                  PlatformFile file = result.files.first;
-                                  _listFiles.selected.output.subtitles = file.path ?? '';
-                                } else {
-                                  _listFiles.selected.output.subtitles = '';
-                                }
-
-                                _subtitleController.text = _listFiles.selected.output.subtitles;
-                              },
-                              icon: const Icon(FontAwesomeIcons.solidFolder, size: 20),
+                            icon: const Padding(
+                              padding: EdgeInsets.only(left: 10),
+                              child: Icon(Icons.auto_mode_rounded, size: 26),
                             ),
-                          ],
-                        ),
-                      ]),
-
-                      CustomCard(title: 'Converter', children: [
-                        Container(
-                          decoration: _boxDecoration,
-                          child: ListTile(
-                            trailing: Switch(
-                              value: _useSameSettings,
-                              onChanged: (value) => setState(() => _useSameSettings = value),
-                            ),
-                            title: const Text('Usar essas configurações em todos os arquivos selecionados'),
+                            label: const Text('CONVERTER  ', style: TextStyle(fontSize: 20)),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          decoration: _boxDecoration,
-                          child: ListTile(
-                            trailing: Switch(
-                              value: _convertAll,
-                              onChanged: (value) => setState(() => _convertAll = value),
-                            ),
-                            title: const Text('Converter todos os arquivos selecionados'),
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-                        ElevatedButton.icon(
-                          onPressed: _convert,
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          icon: const Padding(
-                            padding: EdgeInsets.only(left: 10),
-                            child: Icon(Icons.auto_mode_rounded, size: 26),
-                          ),
-                          label: const Text('CONVERTER  ', style: TextStyle(fontSize: 20)),
-                        ),
-                      ]),
-                    ],
+                        ]),
+                      ],
+                    ),
                   );
                 }
 
@@ -401,6 +415,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  // ----------------------------------------------------------------------------------------------------------------------------------
 
   void _loadFiles() {
     /*showLoadingDialog(context, operation: () async {
@@ -430,6 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
     print('---------------------------------------------');
 
     showLoadingDialog(context, operation: () async {
+      // todo: MELHORAR ESSA PARTE DO CÓDIGO PRA NÃO PRECISAR FICAR VERIFICANDO SE É _convertAll
       if(_convertAll) {
         _ffmpeg = FFmpeg.fromList(_listFiles.files);
         if(_useSameSettings) {
@@ -443,11 +460,13 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       _ffmpeg.prepareStatement(_useSameSettings ? _listFiles.selected.output : null);
-      print('ffmpeg ${_convertAll ? _ffmpeg.argumentList.map((e) => e.join(' ')) : _ffmpeg.arguments.join(' ')}');
+      print('ffmpeg ${_ffmpeg.argumentList.map((e) => e.join(' '))}');
       print('__________________________________________________________________________________________________________________________');
 
       await _ffmpeg.start(context);
-      if(_convertAll) {
+
+      //todo: ESSE CÓDIGO ABAIXO É PARA QUANDO FOR REMOVER OS ARQUIVOS CONVERTIDOS COM SUCESSO
+      /*if(_convertAll) {
         for(var file in _listFiles.files) {
           if(file.output.conversionResults?.success == true) {
             _listFiles.remove(file);
@@ -457,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if(_listFiles.selected.output.conversionResults?.success == true) {
           _listFiles.remove(_listFiles.selected);
         }
-      }
+      }*/
     });
   }
 

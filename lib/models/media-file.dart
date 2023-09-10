@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:ffi';
 
 import 'package:converter_plus_plus/constants/constants.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
+import 'package:converter_plus_plus/models/frames.dart';
 import 'package:converter_plus_plus/models/output-settings.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -10,6 +12,7 @@ class MediaFile {
   late final String name;
   late final String extension;
   late final double aspectRatio;
+  late final Frame frame;
   late final MediaType type;
   late final OutputSettings output;
   late final int width;
@@ -26,6 +29,7 @@ class MediaFile {
     aspectRatio = 16/9;
     width = 1920;
     height = 1080;
+    frame = Frame(1, 0);
 
     output = OutputSettings(
       type: type,
@@ -41,11 +45,14 @@ class MediaFile {
     name = file.name.replaceAll('.$extension', '');
     path = file.path!.replaceAll('\\$fullName', '');
 
+    final frameRate = streams['avg_frame_rate'].split('/').map((e) => int.parse(e)).toList();
+    frame = Frame(int.parse(streams['nb_read_frames']), frameRate[0]/frameRate[1]);
+
     if(streams['codec_type'] == 'audio') {
       type = MediaType.audio;
       width = height = 0;
-    } else {
-      type = streams.containsKey('nb_frames') ? MediaType.video : MediaType.image;
+    } else { // O 'codec_type' retorna 'video' tanto pra vídeo quanto imagem, então verifico através do frame.count
+      type = frame.count > 1 ? MediaType.video : MediaType.image;
       width = streams['width'];
       height = streams['height'];
       aspectRatio = width/height;
@@ -90,7 +97,9 @@ class MediaFile {
       'path': path,
       'name': name,
       'extension': extension,
-      'aspectRatio': aspectRatio,
+      'aspect-ratio': aspectRatio,
+      'frame-count': frame.count,
+      'frame-rate': frame.rate,
       'type': type.descricao,
       'size': '$width / $height',
       'output': output.toMap(),

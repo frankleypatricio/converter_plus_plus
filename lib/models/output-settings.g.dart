@@ -102,7 +102,8 @@ mixin _$OutputSettings on _OutputSettings, Store {
   }
 
   @override
-  void setConversionResults(bool success, [String message = '']) {
+  void setConversionResults(bool success,
+      [String message = 'Conversão concluída com sucesso.']) {
     final _$actionInfo = _$_OutputSettingsActionController.startAction(
         name: '_OutputSettings.setConversionResults');
     try {

@@ -20,6 +20,17 @@ class AppTheme {
     textTheme: textTheme(),
     bottomAppBarTheme: bottomAppBarTheme(),
     inputDecorationTheme: inputDecorationTheme,
+    switchTheme: SwitchThemeData(
+      thumbColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+        return states.contains(MaterialState.selected) ? colorScheme.primary : null;
+      }),
+      trackColor: MaterialStateProperty.all(disabled),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+        return states.contains(MaterialState.selected) ? colorScheme.primary : null;
+      }),
+    )
   );
 
   InputDecorationTheme get inputDecorationTheme => InputDecorationTheme(
