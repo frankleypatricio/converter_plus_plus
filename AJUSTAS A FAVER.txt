@@ -1,2 +1,0 @@
-- Criar tela de configuração. Algumas das configs será padrões de conversão, se é pra remover arquivos convertidos das lista.
-- 

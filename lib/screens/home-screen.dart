@@ -1,5 +1,7 @@
 import 'package:converter_plus_plus/components/custom-card.dart';
+import 'package:converter_plus_plus/dialogs/info-dialog.dart';
 import 'package:converter_plus_plus/dialogs/loading-dialog.dart';
+import 'package:converter_plus_plus/enums/dialog-type.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
@@ -419,11 +421,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ----------------------------------------------------------------------------------------------------------------------------------
 
   void _loadFiles() {
-    /*showLoadingDialog(context, operation: () async {
-      await Future.delayed(const Duration(seconds: 1));
-      throw ValidateException(erros: {'a': ['aaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb']});
-    });*/
-    // FFmpeg.fromList(_listFiles.files).start(context);
     showLoadingDialog(context, operation: () async {
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
 

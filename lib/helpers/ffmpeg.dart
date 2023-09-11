@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:converter_plus_plus/dialogs/confirm-dialog.dart';
+import 'package:converter_plus_plus/dialogs/info-dialog.dart';
+import 'package:converter_plus_plus/enums/dialog-type.dart';
 import 'package:converter_plus_plus/enums/media-quality.dart';
 import 'package:converter_plus_plus/enums/media-type.dart';
 import 'package:converter_plus_plus/enums/replace-file.dart';
@@ -20,6 +22,9 @@ class FFmpeg {
 
   late final List<MediaFile> files;
   final List<List<String>> argumentList = [];
+
+  // Contador de arquivos convertidos
+  int convertidos = 0;
 
   FFmpeg(MediaFile file) {
     files = [file];
@@ -75,11 +80,12 @@ class FFmpeg {
   }
 
   Future<void> start(BuildContext context) async {
-    await showDialog(
+    convertidos = 0;
+    final result = await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => WillPopScope(
-        onWillPop: () => Future(() => false),
+        onWillPop: () => Future(() => false), // Previnir que usuário feche o dialog ao clicar fora
         child: FutureBuilder(
           future: _start(context),
           builder: (context, _) {
@@ -89,7 +95,14 @@ class FFmpeg {
                 padding: const EdgeInsets.all(16),
                 child: Wrap(
                   children: [
-                    const Text('Convertendo...', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20)),
+                    Text(
+                      'Convertendo...',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 20,
+                        color: AppTheme.colorScheme.primary,
+                      ),
+                    ),
                     const Divider(),
                     const SizedBox(height: 36),
                     Row(
@@ -154,7 +167,8 @@ class FFmpeg {
                               onPressed: () async {
                                 if(await showConfirmDialog(context, 'Cancelar todo o processo de conversão?')) {
                                   _process!.kill();
-                                  Navigator.pop(context);
+                                  if(!context.mounted) return;
+                                  Navigator.pop(context, false);
                                 }
                               },
                               child: const Text('Cancelar', style: TextStyle(color: Colors.red, fontSize: 18)),
@@ -171,9 +185,18 @@ class FFmpeg {
         ),
       ),
     );
+
+    if(!context.mounted) return;
+    await showInfoDialog(
+      context,
+      result == true ? 'Processo concluído!' : 'Processo cancelado!',
+      'Foram convertidos $convertidos de ${files.length} arquivo(s).\nVerifique as informações da conversão na lista de arquivos.',
+      result == true ? DialogType.success : DialogType.error,
+    );
   }
 
   Future<void> _start(BuildContext context) async {
+    //todo: Verificar esse código aqui, parece que é algo do progress
     /*while(_progressController.progress < 5) {
       _progressController.setMessage('file${_progressController.progress}.png');
       await Future.delayed(const Duration(seconds: 5));
@@ -184,12 +207,13 @@ class FFmpeg {
       int exitCode = await _run(argumentList[i]);
 
       if(exitCode == 0) {
+        convertidos++;
         files[i].output.setConversionResults(true);
 
       } else if(exitCode == 1) {
         files[i].output.setConversionResults(false,
           'Houve uma falha ao converter o formato ${files[i].extension} '
-              'para ${_conversionFormat ?? files[i].output.format.extension}.',
+          'para ${_conversionFormat ?? files[i].output.format.extension}.',
         );
 
       } else { // -1
@@ -205,7 +229,9 @@ class FFmpeg {
 
     await Future.delayed(delay);
     print('saindo _start...');
-    Navigator.pop(context);
+
+    if(!context.mounted) return;
+    Navigator.pop(context, true);
   }
 
   Future<int> _run(List<String> arguments) async {

@@ -1,0 +1,6 @@
+- Criar tela de configuração. Algumas das configs será padrões de conversão, se é pra remover arquivos convertidos das lista;
+- Criar alert com detalhes da conversão de cada arquivo (ConversionResults);
+- Ajustar o "perguntar antes de substituir", porque ele não está perguntando e trava na hora de converter. Nesse caso, perguntar antes de converter e adicionar o -y se a resposta for sim, se não, só pular a conversão mesmo.
+- Criar validação para os arquivos a serem convertidos;
+- Tentar obter o resultado do process para fazer estimativa de tempo;
+-
